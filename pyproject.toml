@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qlik-redshift-lineage"
+version = "0.1.0"
+description = "Trace Redshift-backed Qlik QVDs and dashboards and plan their Snowflake migration."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Thomas Wells" }]
+dependencies = []
+
+[project.scripts]
+qlik-redshift-lineage = "qlik_redshift_lineage.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

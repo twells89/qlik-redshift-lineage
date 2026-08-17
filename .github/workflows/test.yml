@@ -1,0 +1,18 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Run fixture smoke
+        run: python3 scripts/analyze.py analyze --input fixtures/redshift-via-qvd/ctl.json --source-map fixtures/redshift-via-qvd/source-map.json --redshift-catalog fixtures/redshift-via-qvd/redshift-catalog.json --target-config fixtures/redshift-via-qvd/target-config.json --out /tmp/qlik-lineage-smoke

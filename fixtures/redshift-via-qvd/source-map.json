@@ -1,0 +1,6 @@
+{
+  "connections": [
+    {"match": "redshift-prod", "source_system": "redshift"},
+    {"match": "snowflake-analytics", "source_system": "snowflake"}
+  ]
+}

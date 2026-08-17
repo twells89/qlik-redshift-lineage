@@ -1,0 +1,38 @@
+{
+  "apps": [
+    {
+      "id": "producer-orders",
+      "name": "Orders Load",
+      "loadScript": "LIB CONNECT TO 'redshift-prod';\nOrders:\nLOAD ORDER_ID, CUSTOMER_ID, NET_REVENUE\nSQL SELECT ORDER_ID, CUSTOMER_ID, NET_REVENUE FROM analytics.orders;\nSTORE Orders INTO [lib://qvds/orders.qvd] (qvd);",
+      "connections": [
+        {"id": "redshift-prod", "name": "redshift-prod"}
+      ]
+    },
+    {
+      "id": "consumer-orders",
+      "name": "Orders Dashboard",
+      "loadScript": "LIB CONNECT TO 'snowflake-analytics';\nOrders:\nLOAD ORDER_ID, CUSTOMER_ID, NET_REVENUE\nFROM [lib://qvds/orders.qvd] (qvd);",
+      "connections": [
+        {"id": "snowflake-analytics", "name": "snowflake-analytics"}
+      ],
+      "qvds": [
+        {"name": "orders.qvd", "path": "lib://qvds/orders.qvd"}
+      ],
+      "dashboards": [
+        {
+          "id": "orders-dashboard",
+          "name": "Orders Dashboard",
+          "sheets": [
+            {
+              "id": "overview",
+              "name": "Overview",
+              "charts": [
+                {"id": "revenue-by-customer", "name": "Revenue by Customer", "fields": ["CUSTOMER_ID", "NET_REVENUE"]}
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

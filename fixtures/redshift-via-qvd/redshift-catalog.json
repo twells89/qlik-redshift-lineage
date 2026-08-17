@@ -1,0 +1,7 @@
+{
+  "columns": [
+    {"table_schema": "analytics", "table_name": "orders", "column_name": "ORDER_ID", "data_type": "bigint", "is_nullable": "NO"},
+    {"table_schema": "analytics", "table_name": "orders", "column_name": "CUSTOMER_ID", "data_type": "varchar", "character_maximum_length": 64, "is_nullable": "YES"},
+    {"table_schema": "analytics", "table_name": "orders", "column_name": "NET_REVENUE", "data_type": "numeric", "numeric_precision": 18, "numeric_scale": 2, "is_nullable": "YES"}
+  ]
+}
