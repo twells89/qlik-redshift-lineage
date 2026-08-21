@@ -131,6 +131,29 @@ def _text(value_or_obj: Any) -> str:
     return ""
 
 
+def _field_texts(value_or_items: Any) -> List[str]:
+    result = []
+    for item in as_list(value_or_items):
+        text = _text(item)
+        if text:
+            result.append(text)
+    return result
+
+
+def _boolean(obj: dict, keys: tuple[str, ...], default: bool) -> bool:
+    for key in keys:
+        if key not in obj:
+            continue
+        value = obj[key]
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str) and value.strip().lower() in {"true", "yes", "1", "enabled"}:
+            return True
+        if isinstance(value, str) and value.strip().lower() in {"false", "no", "0", "disabled"}:
+            return False
+    return default
+
+
 def _records(app: dict, logical: str) -> List[dict]:
     result = []
     for item in as_list(value(app, logical)):
@@ -205,20 +228,28 @@ def normalize_app(app: dict, file_path: Path, app_path: str, ordinal: int) -> di
             charts = _records(sheet, "charts")
             for c_index, chart in enumerate(charts):
                 chart_id = stable_id("chart", value(chart, "id"), f"{sheet_id}-{c_index}")
-                fields = []
-                for field_item in as_list(value(chart, "fields")):
-                    text = _text(field_item)
-                    if text:
-                        fields.append(text)
-                for key in ("dimensions", "measures"):
-                    for field_item in as_list(chart.get(key)):
-                        text = _text(field_item)
-                        if text:
-                            fields.append(text)
+                dimensions = _field_texts(chart.get("dimensions"))
+                measures = _field_texts(chart.get("measures"))
+                fields = _field_texts(value(chart, "fields")) + dimensions + measures
+                alternate_state = (
+                    chart.get("alternateState")
+                    or chart.get("alternate_state")
+                    or chart.get("qStateName")
+                    or chart.get("state")
+                )
+                selectable = _boolean(
+                    chart,
+                    ("selectionEnabled", "selection_enabled", "selectable", "enableSelection"),
+                    True,
+                )
                 normalized_sheet["charts"].append({
                     "id": chart_id,
                     "name": str(value(chart, "name", f"Chart {c_index + 1}")),
                     "fields": sorted(set(fields)),
+                    "dimensions": sorted(set(dimensions)),
+                    "measures": sorted(set(measures)),
+                    "selectable": selectable,
+                    "alternate_state": str(alternate_state) if alternate_state else "",
                     "expression": _text(chart.get("expression") or chart.get("qDef")),
                 })
             normalized_dashboard["sheets"].append(normalized_sheet)

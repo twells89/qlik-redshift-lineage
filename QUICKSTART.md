@@ -60,5 +60,11 @@ Review these in order:
 4. `snowflake-migration-manifest.json` for target names and strategies.
 5. `snowflake-ddl.sql` for `REVIEW` and `UNSUPPORTED` mappings.
 
+For cross-filtering, inspect `sigma-cross-filter-actions.json`. It contains the
+chart `on-select` hosts, generated controls, target chart IDs, and clear-
+selections button template. Map those neutral IDs to the final Sigma workbook
+elements during workbook construction, then validate the behavior with actual
+chart selections.
+
 Do not execute generated DDL without reviewing the source catalog and QVD
 transformations.

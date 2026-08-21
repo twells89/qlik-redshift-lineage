@@ -43,6 +43,11 @@ Optional inputs:
   column-level DDL; without it the tool emits a migration manifest only.
 - `--target-config`: Snowflake database/schema defaults.
 
+Cross-filter behavior is a separate output from warehouse lineage. Do not infer
+it from QVD names or QVD rows alone. The analyzer uses chart dimensions,
+selection metadata, Qlik load-script fields, and shared-field associations to
+produce a Sigma action plan.
+
 ## Run
 
 From the repository root:
@@ -83,6 +88,20 @@ lineage exists; normal analysis still writes all outputs.
 6. Review every unresolved item and every `REVIEW` or `UNSUPPORTED` type
    mapping before creating Snowflake objects.
 
+## Cross-Filter Actions
+
+For every selectable chart dimension, the skill can emit a neutral Sigma action
+manifest:
+
+```text
+chart selection → [Selection/<field>] → set-control-value → dashboard control → target charts
+```
+
+The manifest is a handoff artifact for the workbook-building process. It does
+not call the Sigma API and does not claim that Qlik's multi-select toggling or
+alternate-state semantics are automatically reproduced. Read
+`refs/cross-filtering.md` before using the action output.
+
 ## Outputs
 
 - `lineage.json`: canonical graph with nodes, edges, confidence, and evidence.
@@ -91,9 +110,12 @@ lineage exists; normal analysis still writes all outputs.
 - `redshift-qvd-impact.csv`: QVD producer/consumer and source inventory.
 - `redshift-source-tables.csv`: classified warehouse tables.
 - `snowflake-migration-manifest.json`: target table strategy and dependencies.
-- `snowflake-type-mapping.csv`: add a derived CSV in a future release; the
-  manifest currently carries column mappings.
+- `snowflake-type-mapping.csv`: column-level Redshift-to-Snowflake mappings and
+  `AUTO`/`REVIEW`/`UNSUPPORTED` status.
 - `snowflake-ddl.sql`: generated only for tables with catalog columns.
+- `sigma-cross-filter-actions.json`: inferred Sigma `on-select` actions,
+  dashboard-scoped controls, and a clear-selections button template.
+- `cross-filter-impact.csv`: one row per inferred chart selection effect.
 - `unresolved-lineage.json`: missing, ambiguous, or unsupported evidence.
 
 ## Handoff To Qlik Conversion
@@ -110,3 +132,4 @@ Qlik conversion inputs automatically.
 - `refs/qvd-lineage-model.md`
 - `refs/redshift-to-snowflake.md`
 - `refs/confidence-and-evidence.md`
+- `refs/cross-filtering.md`

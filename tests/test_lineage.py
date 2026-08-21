@@ -46,6 +46,31 @@ class LineageTests(unittest.TestCase):
         _, summary = analyze(apps, {"connections": []})
         self.assertEqual(summary["source_tables"][0]["source_system"], "unknown")
 
+    def test_cross_filter_plan_builds_selection_actions(self):
+        _, summary = analyze(self.apps(), self.source_map())
+        plan = summary["cross_filters"]
+        self.assertEqual(len(plan["controls"]), 1)
+        self.assertEqual(len(plan["actions"]), 2)
+        self.assertTrue(all(action["trigger"] == "on-select" for action in plan["actions"]))
+        self.assertTrue(any(
+            effect["value"]["formula"] == "[Selection/CUSTOMER_ID]"
+            for action in plan["actions"]
+            for effect in action["effects"]
+        ))
+        self.assertEqual(len(plan["clear_buttons"]), 1)
+
+    def test_alternate_state_is_reviewed_not_silently_mapped(self):
+        apps = self.apps()
+        apps[0]["connections"][0]["name"] = "redshift-prod"
+        apps[1]["dashboards"][0]["sheets"][0]["charts"][0]["alternate_state"] = "AltState"
+        _, summary = analyze(apps, self.source_map())
+        review_kinds = {item["kind"] for item in summary["cross_filters"]["review"]}
+        self.assertIn("alternate_state", review_kinds)
+        self.assertFalse(any(
+            action["host_element"] == "chart:revenue-by-customer"
+            for action in summary["cross_filters"]["actions"]
+        ))
+
 
 class SnowflakeTests(unittest.TestCase):
     def test_numeric_mapping_preserves_precision(self):

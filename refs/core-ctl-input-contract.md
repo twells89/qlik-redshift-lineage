@@ -32,7 +32,14 @@ explicit metadata or parseable Qlik load-script statements.
               "id": "overview",
               "name": "Overview",
               "charts": [
-                {"id": "revenue", "name": "Revenue", "fields": ["NET_REVENUE"]}
+                {
+                  "id": "revenue",
+                  "name": "Revenue",
+                  "dimensions": ["CUSTOMER_ID"],
+                  "measures": ["NET_REVENUE"],
+                  "selectionEnabled": true,
+                  "alternateState": ""
+                }
               ]
             }
           ]

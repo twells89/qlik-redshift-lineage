@@ -26,6 +26,8 @@ Then inspect:
 - `out/redshift-via-qvd/redshift-qvd-impact.csv`
 - `out/redshift-via-qvd/snowflake-migration-manifest.json`
 - `out/redshift-via-qvd/snowflake-ddl.sql`
+- `out/redshift-via-qvd/sigma-cross-filter-actions.json`
+- `out/redshift-via-qvd/cross-filter-impact.csv`
 - `out/redshift-via-qvd/unresolved-lineage.json`
 
 ## Customer Workflow
@@ -45,11 +47,25 @@ Run the customer's Qlik-to-Sigma conversion process
 The tool does not guess a source system from a table or QVD name. Supply an
 explicit source map when Core CTL does not identify the database technology.
 
+## Cross-Filtering
+
+QVDs alone do not contain dashboard interaction behavior. When Core CTL includes
+chart metadata, the analyzer combines chart dimensions with the Qlik logical
+table association graph and emits Sigma action templates: chart `on-select`
+actions set dashboard-scoped controls using `[Selection/<field>]`, and those
+controls target associated charts. The output also includes a generated clear-
+selections button template.
+
+Alternate states, disabled selections, unresolved fields, and exact Qlik
+multi-select toggle semantics are flagged for review rather than guessed.
+
 ## Input Contract
 
 See `refs/core-ctl-input-contract.md`. A redacted customer Core CTL export is
 needed to add a deployment-specific adapter if its field names differ from the
 tolerant aliases supported by the first release.
+
+For interaction mapping, see `refs/cross-filtering.md`.
 
 ## Development
 

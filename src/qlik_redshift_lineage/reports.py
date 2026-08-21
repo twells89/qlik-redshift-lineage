@@ -26,8 +26,39 @@ def write_outputs(out: Path, graph: LineageGraph, summary: dict, manifest: dict,
     (out / "lineage.json").write_text(json.dumps(graph.as_dict(), indent=2) + "\n", encoding="utf-8")
     (out / "snowflake-migration-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     (out / "snowflake-ddl.sql").write_text(ddl_text, encoding="utf-8")
+    cross_filters = summary.get("cross_filters", {})
+    (out / "sigma-cross-filter-actions.json").write_text(json.dumps(cross_filters, indent=2) + "\n", encoding="utf-8")
+    action_counts = {}
+    for action in cross_filters.get("actions", []):
+        dashboard_id = graph.nodes.get(action.get("host_element"), {}).get("dashboard_id")
+        action_counts[dashboard_id] = action_counts.get(dashboard_id, 0) + 1
+    review_counts = {}
+    for item in cross_filters.get("review", []):
+        dashboard_id = item.get("dashboard")
+        review_counts[dashboard_id] = review_counts.get(dashboard_id, 0) + 1
+    cross_filter_rows = []
+    for action in cross_filters.get("actions", []):
+        for effect in action.get("effects", []):
+            cross_filter_rows.append({
+                "action_id": action.get("id"),
+                "host_element": action.get("host_element"),
+                "trigger": action.get("trigger"),
+                "field": effect.get("selection_field"),
+                "control": effect.get("control"),
+                "target_elements": effect.get("target_elements", []),
+                "confidence": action.get("confidence"),
+            })
+    _write_csv(out / "cross-filter-impact.csv", cross_filter_rows, ["action_id", "host_element", "trigger", "field", "control", "target_elements", "confidence"])
     dashboards = summary.get("dashboards", [])
-    _write_csv(out / "redshift-dashboard-impact.csv", dashboards, ["id", "name", "classification", "qvds", "warehouse_tables"])
+    dashboard_rows = [
+        {
+            **item,
+            "cross_filter_actions": action_counts.get(item.get("id"), 0),
+            "cross_filter_review": review_counts.get(item.get("id"), 0),
+        }
+        for item in dashboards
+    ]
+    _write_csv(out / "redshift-dashboard-impact.csv", dashboard_rows, ["id", "name", "classification", "qvds", "warehouse_tables", "cross_filter_actions", "cross_filter_review"])
     qvds = summary.get("qvds", [])
     _write_csv(out / "redshift-qvd-impact.csv", qvds, ["id", "name", "classification", "warehouse_tables"])
     _write_csv(out / "redshift-source-tables.csv", summary.get("source_tables", []), ["id", "name", "source_system"])
@@ -56,6 +87,8 @@ def write_outputs(out: Path, graph: LineageGraph, summary: dict, manifest: dict,
         f"- QVDs: {len(qvds)}",
         f"- Warehouse tables: {len(summary.get('source_tables', []))}",
         f"- Unresolved items: {len(summary.get('unresolved', []))}",
+        f"- Inferred cross-filter actions: {len(cross_filters.get('actions', []))}",
+        f"- Generated selection controls: {len(cross_filters.get('controls', []))}",
         "",
         "## Dashboard Impact",
         "",
@@ -64,6 +97,17 @@ def write_outputs(out: Path, graph: LineageGraph, summary: dict, manifest: dict,
     ]
     for item in dashboards:
         lines.append(f"| {item.get('name', '')} | {item.get('classification', '')} | {', '.join(item.get('qvds', []))} | {', '.join(item.get('warehouse_tables', []))} |")
+    lines.extend(["", "## Cross-Filter Actions", "", "The action plan translates Qlik associative selections into Sigma `on-select` actions that set dashboard-scoped controls.", ""])
+    for action in cross_filters.get("actions", []):
+        fields = [effect.get("selection_field") for effect in action.get("effects", [])]
+        lines.append(f"- `{action.get('host_element')}` → {', '.join(fields)} → {len(action.get('effects', []))} control effect(s)")
+    if not cross_filters.get("actions"):
+        lines.append("- None inferred.")
+    lines.extend(["", "## Interaction Review", ""])
+    for item in cross_filters.get("review", []):
+        lines.append(f"- `{item.get('kind', 'review')}`: {json.dumps(item, sort_keys=True)}")
+    if not cross_filters.get("review"):
+        lines.append("- None.")
     lines.extend(["", "## Review Items", ""])
     if summary.get("unresolved"):
         for item in summary["unresolved"]:

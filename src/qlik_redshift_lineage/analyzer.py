@@ -61,11 +61,17 @@ def analyze(apps: Iterable[dict], source_map: Optional[dict] = None) -> tuple[Li
                 unresolved.append({"app": app_id, "kind": "script_warning", "message": warning})
             for load in analysis.loads:
                 table_id = f"qlik_table:{app_id}/{load.label}"
-                graph.add_node(table_id, "qlik_table", name=load.label, app_id=app_id)
                 logical_tables.setdefault(load.label.upper(), []).append(table_id)
                 logical_table_fields[table_id] = {
                     _field_token(field) for field in load.fields if _field_token(field)
                 }
+                graph.add_node(
+                    table_id,
+                    "qlik_table",
+                    name=load.label,
+                    app_id=app_id,
+                    fields=sorted(logical_table_fields[table_id]),
+                )
                 evidence = [Evidence(app["file"], f"{app['json_path']}.load_script", load.line_start, load.line_end, "Qlik load statement")]
                 graph.add_edge(app_id, table_id, "app_contains_qlik_table", "high", evidence)
                 if load.qvd:
@@ -109,7 +115,18 @@ def analyze(apps: Iterable[dict], source_map: Optional[dict] = None) -> tuple[Li
                 graph.add_edge(dashboard_id, sheet_id, "dashboard_contains_sheet", "high")
                 for chart in sheet.get("charts", []):
                     chart_id = chart["id"]
-                    graph.add_node(chart_id, "chart", name=chart["name"], expression=chart.get("expression"))
+                    graph.add_node(
+                        chart_id,
+                        "chart",
+                        name=chart["name"],
+                        expression=chart.get("expression"),
+                        app_id=app_id,
+                        dashboard_id=dashboard_id,
+                        dimensions=chart.get("dimensions", []),
+                        measures=chart.get("measures", []),
+                        selectable=chart.get("selectable", True),
+                        alternate_state=chart.get("alternate_state", ""),
+                    )
                     graph.add_edge(sheet_id, chart_id, "sheet_contains_chart", "high")
                     for field in chart.get("fields", []):
                         field_id = f"field:{chart_id}/{_field_token(field)}"
@@ -149,6 +166,23 @@ def analyze(apps: Iterable[dict], source_map: Optional[dict] = None) -> tuple[Li
                 for table_id in [node_id for node_id in graph.nodes if node_id.startswith(f"qlik_table:{producer_app}/")]:
                     graph.add_edge(qvd_id, table_id, "qvd_produced_by_qlik_table", "medium")
 
+    # Qlik's associative model links logical tables on shared field names. This
+    # is the basis for cross-filter target inference, not the QVD contents.
+    tables_by_app: Dict[str, List[str]] = {}
+    for table_id, node in graph.nodes.items():
+        if node.get("type") == "qlik_table":
+            tables_by_app.setdefault(str(node.get("app_id")), []).append(table_id)
+    for app_id, table_ids in tables_by_app.items():
+        for index, left_id in enumerate(table_ids):
+            left_fields = set(graph.nodes[left_id].get("fields", []))
+            for right_id in table_ids[index + 1:]:
+                shared = sorted(left_fields & set(graph.nodes[right_id].get("fields", [])))
+                if not shared:
+                    continue
+                evidence = [Evidence("<normalized-qlik-model>", reason=f"Shared Qlik field(s): {', '.join(shared)}")]
+                graph.add_edge(left_id, right_id, "qlik_tables_associated_by_field", "medium", evidence)
+                graph.add_edge(right_id, left_id, "qlik_tables_associated_by_field", "medium", evidence)
+
     # Add source-system nodes for explicit connection declarations and classify warehouse nodes.
     for node_id, node in list(graph.nodes.items()):
         if node["type"] != "warehouse_table":
@@ -157,7 +191,10 @@ def analyze(apps: Iterable[dict], source_map: Optional[dict] = None) -> tuple[Li
         # A table name is never enough evidence to classify a warehouse.
         node.setdefault("source_system", "unknown")
 
+    from .interactions import build_cross_filter_plan
+
     summary = summarize(graph, unresolved)
+    summary["cross_filters"] = build_cross_filter_plan(graph)
     return graph, summary
 
 

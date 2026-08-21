@@ -27,7 +27,9 @@
               "id": "overview",
               "name": "Overview",
               "charts": [
-                {"id": "revenue-by-customer", "name": "Revenue by Customer", "fields": ["CUSTOMER_ID", "NET_REVENUE"]}
+                {"id": "revenue-by-customer", "name": "Revenue by Customer", "dimensions": ["CUSTOMER_ID"], "measures": ["NET_REVENUE"]},
+                {"id": "orders-by-customer", "name": "Orders by Customer", "dimensions": ["CUSTOMER_ID"], "measures": ["ORDER_ID"]},
+                {"id": "revenue-kpi", "name": "Net Revenue", "dimensions": [], "measures": ["NET_REVENUE"]}
               ]
             }
           ]
